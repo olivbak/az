@@ -1,5 +1,6 @@
 import pygame
 from ..settings.settings import *
+from .bullet import Bullet
 vec = pygame.math.Vector2
 #from bullet import Bullet
 
@@ -15,8 +16,13 @@ class Tank(pygame.sprite.Sprite):
 
         self.hit_rect = pygame.Rect(0,0,TILESIZE-10,TILESIZE-10)
         self.hit_rect.center = self.pos
+        
+        # init bullets
+        self.bullets = {}
+        self.next_bullet_id = 0
+        
+        self.ready_to_fire = True
 
-        self.bullet_list = []
         self.player_img = pygame.image.load("./images/sprite.png")
         
         self.org_image = pygame.transform.rotate(self.player_img,90)
@@ -28,11 +34,15 @@ class Tank(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
 
-    def fireBullet(self):
-        if len(self.bullet_list)<5:
+    def shoot(self,time): 
+        if self.ready_to_fire and len(self.bullets)<BULLET_CAP:
             dir = vec (1,0).rotate(-self.rotation)
-            self.bullet_list.append(Bullet(vec(self.pos),dir,[self.bullets,self.walls],self.bullet_list,len(self.bullet_list)))
-
+            self.bullets[self.next_bullet_id] = {'bullet': 
+                    Bullet(vec(self.pos),dir,self.next_bullet_id
+                        ,time,self.bullets)}
+            self.next_bullet_id += 1
+            self.ready_to_fire = False
+            
     def move(self,dt,dpos):
         self.pos += dpos * dt 
         self.rect.center = self.pos

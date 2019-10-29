@@ -6,6 +6,7 @@ from ..sprites.tank import Tank
 import pickle
 from .ip_address import Ip_address
 from ..map.map import Map
+from ..settings.settings import *
 from ..data.server_to_client_data import server_to_client_data
 from .control_api import control_api
 import pygame
@@ -23,7 +24,9 @@ class Server:
         self.tanks = pygame.sprite.Group() 
         self.control_api = control_api(self.map,self.players)
         self.convertdata = server_to_client_data()
+
     def setup(self):
+        start_new_thread(self.game_loop,())
         self.s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_IP,socket.SO_REUSEADDR,1)
 
@@ -31,7 +34,7 @@ class Server:
             self.s.bind((self.server,self.port))
         except socket.error as e:
             str(e)
-
+        
         self.s.listen()
         print('Waiting for connection. Server started at ip:',self.server)
    
@@ -46,11 +49,13 @@ class Server:
             command  = data.split(" ") 
 
             if command[0] == "move":
-                self.control_api.move_tank(input["dt"],tank,command[1])
+                self.control_api.move_tank(self.dt,tank,command[1])
             elif command[0] == "rotate":
-                self.control_api.rotate_tank(input["dt"],tank,command[1])
+                self.control_api.rotate_tank(self.dt,tank,command[1])
             elif command[0] == "shoot":
-                self.control_api.shoot(input['dt'],tank)
+                self.control_api.shoot(tank,self.time)
+            elif command[0] == 'reload':
+                self.control_api.reload(tank)
 
     def get_tank_from_playerid(self,playerid):
         return self.players[playerid]["tank"]
@@ -73,7 +78,8 @@ class Server:
                     print("removed playa")
                     break
                 else:
-                    reply = self.convertdata.convert_tankdata_to_nonpygame_data(self.players)
+
+                    reply = {'tanks':self.convertdata.convert_tankdata_to_nonpygame_data(self.players),'bullets':self.convertdata.convert_bulletdata_to_nonpygame_data(self.players)}
 
                 conn.sendall(pickle.dumps(reply))
                     
@@ -84,7 +90,11 @@ class Server:
         # When players disconnect
 
         print("Lost connection")
-        del self.players[playerid]
+        try:
+            del self.players[playerid]
+        except Exception as e:
+            pass
+
         conn.close()
         self.disconnected.append(playerid) 
 
@@ -100,7 +110,25 @@ class Server:
             ## If new connection - establish connection
             start_new_thread(self.threaded_client,(conn,currentPlayer))
             currentPlayer += 1
+    
+    def update(self):
+        self.control_api.update_tanks()
+        self.control_api.update_bullets(self.dt,self.time)
 
+        #Temporary kill mechanic, that shuts down client when it dies:
+        for key in self.players.copy():
+            if not self.players[key]['tank'].alive:
+                del self.players[key]
+
+    def game_loop(self):
+        pygame.init()
+        pygame.mixer.quit()
+        clock = pygame.time.Clock()
+
+        while self.running:
+            self.dt = clock.tick(FPS) / 1000
+            self.time = pygame.time.get_ticks()
+            self.update() 
 
 ip = Ip_address()
 

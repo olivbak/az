@@ -5,6 +5,7 @@ from ..map.map import *
 from ..networking.client import Network
 from ..sprites.wall import Wall
 from ..sprites.tank import Tank
+from ..sprites.bullet import Bullet
 from ..camera.camera import Camera
 from ..data.convert_client_data import convert_client_data
 #from ..sprites.bullet import Bullet
@@ -51,6 +52,8 @@ class Game():
         for sprite in self.tanks:
             self.screen.blit(sprite.image,self.camera.apply(sprite))
             #sprite.update()
+        for sprite in self.bullets:
+            self.screen.blit(sprite.image,self.camera.apply(sprite))
 
         pygame.display.flip()
 
@@ -72,14 +75,19 @@ class Game():
             reply.append("move up")
         if keys[pygame.K_DOWN]:
             reply.append("move down")
+        if keys[pygame.K_m]:
+            reply.append("shoot")
+        if not keys[pygame.K_m]:
+            reply.append("reload")
         return reply 
                     
 
     def update(self):
         self.walls.update() 
         command = self.events()
-        self.data = self.network.send({"command":command,"dt":self.dt})
-        self.tanks = self.convert_data.get_tanks_from_server_data(self.data)
+        self.data = self.network.send({"command":command})
+        self.tanks = self.convert_data.get_tanks_from_server_data(self.data['tanks'])
+        self.bullets = self.convert_data.get_bullets_from_server_data(self.data['bullets'])
         self.tank = self.get_my_tank(self.tanks)
         if not self.tank:
             self.quit()
